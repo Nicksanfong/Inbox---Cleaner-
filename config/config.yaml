@@ -1,0 +1,23 @@
+trading:
+  # Paper trading uses fake money — safe for testing
+  mode: paper
+  symbols:
+    - AAPL
+    - MSFT
+    - SPY
+  default_timeframe: 1D
+
+risk:
+  max_position_size_pct: 0.02   # 2% of portfolio per trade
+  max_portfolio_drawdown_pct: 0.10  # Stop trading if down 10%
+  max_open_positions: 5
+
+logging:
+  level: INFO
+  file: logs/trading.log
+  max_bytes: 10485760   # 10 MB
+  backup_count: 5
+
+data:
+  cache_dir: data/cache
+  history_days: 365

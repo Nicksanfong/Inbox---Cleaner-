@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  trading-platform:
+    build: .
+    container_name: trading-platform
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python main.py
+    restart: unless-stopped
+
+  # Uncomment when you add a database later
+  # db:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_DB: trading
+  #     POSTGRES_USER: trader
+  #     POSTGRES_PASSWORD: changeme
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   pgdata:
