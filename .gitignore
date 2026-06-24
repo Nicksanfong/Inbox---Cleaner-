@@ -15,8 +15,9 @@ env/
 logs/*.log
 logs/*.log.*
 
-# Data cache
+# Data cache and generated database
 data/cache/
+data/*.db
 
 # IDE
 .vscode/
