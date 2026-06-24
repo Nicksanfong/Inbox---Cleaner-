@@ -19,15 +19,12 @@ def load_config(config_path: str = "config/config.yaml", env_file: str = ".env")
     with open(config_path, "r") as f:
         _config = yaml.safe_load(f) or {}
 
-    # Overlay a handful of key env vars so secrets never live in YAML
+    # Overlay key env vars so secrets never live in YAML
     _config.setdefault("env", {})
-    _config["env"]["broker_api_key"] = os.getenv("BROKER_API_KEY", "")
-    _config["env"]["broker_api_secret"] = os.getenv("BROKER_API_SECRET", "")
-    _config["env"]["broker_base_url"] = os.getenv(
-        "BROKER_BASE_URL", "https://paper-api.alpaca.markets"
-    )
-    _config["env"]["environment"] = os.getenv("ENVIRONMENT", "development")
-    _config["env"]["log_level"] = os.getenv(
+    _config["env"]["alpaca_api_key"]    = os.getenv("ALPACA_API_KEY", "")
+    _config["env"]["alpaca_api_secret"] = os.getenv("ALPACA_API_SECRET", "")
+    _config["env"]["environment"]       = os.getenv("ENVIRONMENT", "development")
+    _config["env"]["log_level"]         = os.getenv(
         "LOG_LEVEL", _config.get("logging", {}).get("level", "INFO")
     )
 
