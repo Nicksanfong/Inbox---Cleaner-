@@ -2,7 +2,9 @@
 Signal generation engine.
 
 Call SignalEngine.scan(frames, symbol) where frames is a dict mapping
-timeframe labels ("15m", "1H", "D") to raw OHLCV DataFrames.
+timeframe labels ("5m", "15m", "30m", "1H", "4H", "D", "W") to raw
+OHLCV DataFrames.  Any subset of timeframes is valid; missing ones
+are skipped automatically.
 
 The engine:
   1. Runs indicators + patterns on each timeframe.
@@ -14,13 +16,21 @@ The engine:
 
 Multi-timeframe weighting
 ─────────────────────────
-  Daily  (D)    40 %
-  Hourly (1H)   35 %
-  15-min (15m)  25 %
+  Weekly  (W)    25 %   ← macro trend / market regime
+  Daily   (D)    20 %   ← primary trend
+  4-hour  (4H)   18 %   ← swing structure
+  Hourly  (1H)   15 %   ← intraday momentum
+  30-min  (30m)  10 %   ← short-term momentum
+  15-min  (15m)   7 %   ← entry refinement
+  5-min   (5m)    5 %   ← entry trigger
+                ─────
+                100 %
 
-  Agreement bonus:  all 3 agree → +10 pts
-                    2 of 3 agree → +6 pts
-                    1 of 1–2 agree → +0 pts
+  Agreement bonus (ratio of agreeing TFs):
+    100 %  →  +10 pts
+     ≥ 70 % →  + 6 pts
+     ≥ 50 % →  + 3 pts
+     < 50 % →  + 0 pts
 """
 from __future__ import annotations
 
@@ -36,19 +46,30 @@ from signals.scoring import score_bar
 log = logging.getLogger(__name__)
 
 # Timeframes listed highest → lowest; used for iteration order
-_TF_ORDER = ["D", "1H", "15m"]
+_TF_ORDER = ["W", "D", "4H", "1H", "30m", "15m", "5m"]
 
-_TF_WEIGHT: dict[str, float] = {"D": 0.40, "1H": 0.35, "15m": 0.25}
+_TF_WEIGHT: dict[str, float] = {
+    "W":   0.25,
+    "D":   0.20,
+    "4H":  0.18,
+    "1H":  0.15,
+    "30m": 0.10,
+    "15m": 0.07,
+    "5m":  0.05,
+}
 
 
 def _mtf_bonus(agreements: int, n_tfs: int) -> float:
     """Points added when timeframes agree on direction."""
     if n_tfs < 2:
         return 0.0
-    if agreements == n_tfs:          # all agree
+    ratio = agreements / n_tfs
+    if ratio == 1.0:    # all agree
         return 10.0
-    if agreements >= n_tfs - 1:     # all but one agree
+    if ratio >= 0.70:   # strong majority (≥ 70 %)
         return 6.0
+    if ratio >= 0.50:   # simple majority
+        return 3.0
     return 0.0
 
 
@@ -75,7 +96,8 @@ class SignalEngine:
 
         Parameters
         ----------
-        frames : {"15m": df, "1H": df, "D": df}  — raw OHLCV DataFrames.
+        frames : {"5m": df, "15m": df, "30m": df, "1H": df,
+                  "4H": df, "D": df, "W": df}  — raw OHLCV DataFrames.
                  Any subset of timeframes is valid; missing ones are skipped.
         symbol : ticker label (display only)
 

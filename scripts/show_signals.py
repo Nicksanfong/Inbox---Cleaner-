@@ -119,10 +119,16 @@ def main():
         print()
         print(_header(scenario["name"], char="─"))
 
+        # Each higher TF multiplies the per-bar trend so price travels
+        # a similar total distance, keeping EMA stacks aligned.
         frames = {
-            "15m": _make_ohlcv(400, trend,       seed,     "15min", noise=0.15),
-            "1H":  _make_ohlcv(350, trend * 4,   seed + 1, "1h",   noise=0.12),
-            "D":   _make_ohlcv(500, trend * 16,  seed + 2, "D",    noise=0.10),
+            "5m":  _make_ohlcv(500, trend,         seed,     "5min",  noise=0.15),
+            "15m": _make_ohlcv(400, trend * 3,     seed + 1, "15min", noise=0.13),
+            "30m": _make_ohlcv(350, trend * 6,     seed + 2, "30min", noise=0.12),
+            "1H":  _make_ohlcv(350, trend * 12,    seed + 3, "1h",    noise=0.11),
+            "4H":  _make_ohlcv(300, trend * 48,    seed + 4, "4h",    noise=0.10),
+            "D":   _make_ohlcv(300, trend * 192,   seed + 5, "D",     noise=0.08),
+            "W":   _make_ohlcv(260, trend * 960,   seed + 6, "W",     noise=0.06),
         }
 
         raw     = engine.raw_scores(frames, symbol)
