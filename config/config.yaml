@@ -7,6 +7,14 @@ trading:
     - SPY
   default_timeframe: 1D
 
+forex:
+  # OANDA instruments — format is BASE_QUOTE with underscore
+  instruments:
+    - EUR_USD
+    - GBP_USD
+    - USD_JPY
+  granularity: D    # D=daily; M1=1-min, H1=hourly also supported
+
 risk:
   max_position_size_pct: 0.02   # 2% of portfolio per trade
   max_portfolio_drawdown_pct: 0.10  # Stop trading if down 10%

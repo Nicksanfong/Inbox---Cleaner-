@@ -10,6 +10,36 @@ from data.database import upsert_bars
 log = logging.getLogger(__name__)
 
 
+def fetch_forex_bars(
+    instruments: list[str] | None = None,
+    days: int = 365,
+    granularity: str = "D",
+    db_path=None,
+) -> dict[str, int]:
+    """
+    Pull historical candles from OANDA for forex instruments and store in SQLite.
+    Returns {instrument: rows_stored}.
+
+    Instruments use OANDA format: EUR_USD, GBP_USD, USD_JPY.
+    If instruments is None, reads the list from config.yaml → forex.instruments.
+    """
+    from data.oanda_client import fetch_forex_candles
+    from data.database import DB_PATH
+    if db_path is None:
+        db_path = DB_PATH
+
+    if instruments is None:
+        from config.loader import get_config
+        instruments = get_config().get("forex", {}).get("instruments", ["EUR_USD"])
+
+    log.info("Fetching %d days of forex candles for %s ...", days, instruments)
+    results: dict[str, int] = {}
+    for inst in instruments:
+        stored = fetch_forex_candles(inst, count=min(days, 500), granularity=granularity, db_path=db_path)
+        results[inst] = stored
+    return results
+
+
 def fetch_and_store(
     symbols: list[str],
     days: int = 365,

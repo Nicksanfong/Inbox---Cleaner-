@@ -167,3 +167,123 @@ async def test_websocket_dispatches_sync_callbacks() -> None:
     fake_quote = MagicMock()
     await manager._dispatch(fake_quote)
     assert len(received) == 1
+
+
+# ── OANDA client tests ────────────────────────────────────────────────────────
+
+def test_fetch_forex_candles_stores_bars(tmp_path: Path) -> None:
+    db = tmp_path / "forex.db"
+    init_db(db)
+
+    fake_response = {
+        "candles": [
+            {
+                "complete": True,
+                "volume": 12345,
+                "time": "2024-06-01T00:00:00.000000000Z",
+                "mid": {"o": "1.08500", "h": "1.09000", "l": "1.08200", "c": "1.08750"},
+            },
+            {
+                "complete": True,
+                "volume": 9876,
+                "time": "2024-06-02T00:00:00.000000000Z",
+                "mid": {"o": "1.08750", "h": "1.09200", "l": "1.08500", "c": "1.09100"},
+            },
+            {   # incomplete candle — should be skipped
+                "complete": False,
+                "volume": 100,
+                "time": "2024-06-03T00:00:00.000000000Z",
+                "mid": {"o": "1.09100", "h": "1.09100", "l": "1.09100", "c": "1.09100"},
+            },
+        ]
+    }
+
+    mock_api = MagicMock()
+    mock_request_instance = MagicMock()
+    mock_request_instance.response = fake_response
+
+    with (
+        patch("data.oanda_client.get_oanda_api", return_value=(mock_api, "acct-123")),
+        patch("data.oanda_client.instruments.InstrumentsCandles", return_value=mock_request_instance),
+    ):
+        from data.oanda_client import fetch_forex_candles
+        stored = fetch_forex_candles("EUR_USD", count=10, db_path=db)
+
+    assert stored == 2   # only complete candles stored
+    assert get_bar_count("EUR_USD", db_path=db) == 2
+
+
+def test_fetch_forex_candles_skips_duplicates(tmp_path: Path) -> None:
+    db = tmp_path / "forex_dup.db"
+    init_db(db)
+
+    fake_response = {
+        "candles": [
+            {
+                "complete": True, "volume": 1000,
+                "time": "2024-06-01T00:00:00.000000000Z",
+                "mid": {"o": "1.08", "h": "1.09", "l": "1.07", "c": "1.085"},
+            }
+        ]
+    }
+
+    mock_api = MagicMock()
+    mock_request_instance = MagicMock()
+    mock_request_instance.response = fake_response
+
+    with (
+        patch("data.oanda_client.get_oanda_api", return_value=(mock_api, "acct-123")),
+        patch("data.oanda_client.instruments.InstrumentsCandles", return_value=mock_request_instance),
+    ):
+        from data.oanda_client import fetch_forex_candles
+        first  = fetch_forex_candles("EUR_USD", count=10, db_path=db)
+        second = fetch_forex_candles("EUR_USD", count=10, db_path=db)
+
+    assert first  == 1
+    assert second == 0   # duplicate ignored
+
+
+# ── OANDA stream manager tests ────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_oanda_stream_dispatches_price_tick() -> None:
+    from data.oanda_stream import OandaStreamManager
+
+    received = []
+
+    async def on_tick(tick):
+        received.append(tick)
+
+    manager = OandaStreamManager("token", "acct-123", ["EUR_USD"])
+    manager.subscribe(on_tick)
+
+    tick = {
+        "type": "PRICE",
+        "instrument": "EUR_USD",
+        "bids": [{"price": "1.08500", "liquidity": 10_000_000}],
+        "asks": [{"price": "1.08502", "liquidity": 10_000_000}],
+        "tradeable": True,
+        "time": "2024-06-01T10:30:00.000000000Z",
+    }
+    await manager._dispatch(tick)
+
+    assert len(received) == 1
+    assert received[0]["instrument"] == "EUR_USD"
+
+
+@pytest.mark.asyncio
+async def test_oanda_stream_dispatches_sync_callback() -> None:
+    from data.oanda_stream import OandaStreamManager
+
+    received = []
+
+    def sync_cb(tick):
+        received.append(tick)
+
+    manager = OandaStreamManager("token", "acct-123", ["GBP_USD"])
+    manager.subscribe(sync_cb)
+
+    tick = {"type": "PRICE", "instrument": "GBP_USD",
+            "bids": [{"price": "1.27000"}], "asks": [{"price": "1.27002"}]}
+    await manager._dispatch(tick)
+    assert len(received) == 1

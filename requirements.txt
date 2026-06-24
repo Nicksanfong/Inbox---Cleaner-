@@ -2,8 +2,11 @@
 pyyaml>=6.0
 python-dotenv==1.0.1
 
-# Alpaca trading API
+# Alpaca trading API (stocks)
 alpaca-py>=0.20.0
+
+# OANDA forex API
+oandapyV20>=0.6.3
 
 # Data
 pandas==2.2.2
